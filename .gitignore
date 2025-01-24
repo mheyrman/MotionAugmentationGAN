@@ -3,3 +3,5 @@
 
 # device side files
 src/__pycache__/
+logs/
+data_gen/

@@ -8,8 +8,8 @@ class AugmentationGenerator(nn.Module):
             output_dim,
             hidden_dim,
             seq_len,
-            d_model,
-            nhead,
+            # d_model,
+            # nhead,
             num_layers,
             device='cuda'
         ):
@@ -45,7 +45,7 @@ class AugmentationGenerator(nn.Module):
 
         noise_seq = x.unsqueeze(1).repeat(1, self.seq_len, 1)
 
-        lstm_out, _ = self.lstm_generator(noise_seq, (h_init, c_init))
+        lstm_out, _ = self.lstm_generator(noise_seq, (h_init.contiguous(), c_init.contiguous()))
 
         y = self.fc_out(lstm_out)
 
