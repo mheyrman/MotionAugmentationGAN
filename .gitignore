@@ -1,0 +1,5 @@
+# ignore .json files
+*.json
+
+# device side files
+src/__pycache__/
