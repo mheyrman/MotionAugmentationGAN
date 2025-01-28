@@ -25,7 +25,7 @@ class AugmentationDiscriminator(nn.Module):
                 device=device
             ),
             nn.LayerNorm([hidden_dim, self.seq_len], device=device),
-            nn.ReLU(),
+            nn.LeakyReLU(negative_slope=0.1),
             nn.Conv1d(
                 self.hidden_dim,
                 hidden_dim,
@@ -35,7 +35,7 @@ class AugmentationDiscriminator(nn.Module):
                 device=device
             ),
             nn.LayerNorm([hidden_dim, self.seq_len], device=device),
-            nn.ReLU(),
+            nn.LeakyReLU(negative_slope=0.1),
             nn.AdaptiveAvgPool1d(1)
         )
 

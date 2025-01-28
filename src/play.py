@@ -4,8 +4,8 @@ import json
 import os
 import argparse
 
-
 from generator_module import AugmentationGenerator
+from train import load_data
 
 lambda_gp = 10  # Gradient penalty lambda hyperparameter
 n_critic = 3  # Number of critic iterations per generator iteration
@@ -15,12 +15,14 @@ seq_len = 250  # Sequence length
 num_layers = 4  # Number of layers
 noise_input_dim = 128  # Noise input dimension
 hidden_dim = 64  # Hidden dimension
-n_batches = 128  # Number of batches
+n_batches = 1  # Number of batches
+history_len = 25  # History length
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-m", "--model", type=str, default="generator_6000.pt")
+parser.add_argument("-m", "--model", type=str, default="generator_9000.pt")
 parser.add_argument("-s", "--seed", type=int, default=17)
 parser.add_argument("-n", "--num_generated_samples", type=int, default=4)
+parser.add_argument("--motion", type=str, default=None)
 
 args = parser.parse_args()
 
@@ -80,22 +82,43 @@ def play():
     log_dir = "logs"
     log_dir = os.path.join(log_dir, sorted(os.listdir(log_dir))[-1])
     model = AugmentationGenerator(
-        noise_input_dim=noise_input_dim,
-        output_dim=31,
-        seq_len=seq_len,
-        hidden_dim=hidden_dim,
-        num_layers=num_layers,
-        device='cuda'
+        input_dim=31,
+        hidden_noise_dim=hidden_dim,
+        history_len=history_len,
+        encoder_dim=256,
+        decoder_dim=128
     )
     state_dict = torch.load(os.path.join(log_dir, model_name), weights_only=True)
     model.load_state_dict(state_dict=state_dict)
 
     torch.manual_seed(seed)
 
-    noise_inputs = torch.randn(num_generated_samples, noise_input_dim).cuda()
+    real_data = load_data()
 
-    generated_data = model(noise_inputs)
+    generated_data = []
 
+    for i in range(num_generated_samples):
+        fake_seq = torch.zeros(1, seq_len, 31, device='cuda')
+
+        motion = torch.randint(0, len(real_data), (1,), device='cuda')
+        real_data_expanded = real_data[motion.item()].unsqueeze(0)
+        start = 0
+        if real_data_expanded.size(1) < history_len + seq_len:  # if the motion is too short 
+            start = history_len
+        else:
+            start = torch.randint(history_len, real_data_expanded.size(1) - history_len - seq_len, (1,))
+
+        history_buffer = torch.zeros(1, history_len, 31, device='cuda')
+        for i in range(history_len):
+            history_buffer[:, i, :] = real_data_expanded[:, start - history_len + i, :]
+
+        for i in range(torch.randint(1, seq_len, (1,))):
+            fake_data = model(history_buffer)
+            history_buffer = torch.cat((history_buffer[:, 1:, :], fake_data), dim=1)
+            fake_seq[:, i, :] = fake_data
+
+        generated_data.append(fake_seq.squeeze(0))
+    
     for i, data in enumerate(generated_data):
         parsed_data, contacts_data = parse_generated_data(data)
         
